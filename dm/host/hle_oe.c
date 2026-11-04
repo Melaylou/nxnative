@@ -5,6 +5,7 @@
 
 // The operation mode is runtime state (the front end can change it: iOS overheat downgrade switches to handheld): the single source is here, taken once from DM_OPMODE at startup, the environment variable is not read again afterwards
 #include <stdatomic.h>
+#include <TargetConditionals.h>
 static _Atomic int g_opmode = -1;
 int dm_opmode(void) {
     int m = g_opmode;
@@ -73,7 +74,14 @@ static void focus_sync(int applets) {   // applets: +1 an applet opens, -1 one c
     pthread_mutex_lock(&g_seen_lock);
     g_applets += applets;
     if (g_applets < 0) die("dm_applet_leave without dm_applet_enter");
-    int w = atomic_load(&g_focus), s = w == 1 && g_applets ? 2 : w, changed = atomic_exchange(&g_seen, s) != s;
+    int w = atomic_load(&g_focus);
+#if TARGET_OS_OSX
+    // Debug capture: hide ordinary window focus loss from the guest, not from
+    // input, the display watchdog, applets, or the minimized lifecycle.
+    const char *keep = getenv("DM_KEEP_GUEST_FOCUSED");
+    if (w == 2 && keep && !strcmp(keep, "1")) w = 1;
+#endif
+    int s = w == 1 && g_applets ? 2 : w, changed = atomic_exchange(&g_seen, s) != s;
     pthread_mutex_unlock(&g_seen_lock);
     if (!changed) return;   // pushed outside the lock: 15 only says "query the state again", so pushes from two threads need no order
     LOG("oe focus state → %d%s", s, applets > 0 ? " (library applet open)" : applets < 0 ? " (library applet closed)" : "");

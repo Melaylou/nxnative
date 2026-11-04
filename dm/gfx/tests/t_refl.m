@@ -82,7 +82,17 @@ int main(void) { @autoreleasepool {
         check("B handle array: single texture n", 0, r.b[0].n); check("B handle array: single texture offset", 16, r.b[0].off); check("B handle array: single sampler n", 0, r.b[1].n);
         check("B handle array: texture kind", NVN_RB_TEXU, r.b[2].kind); check("B handle array: texture n", 32, r.b[2].n); check("B handle array: texture dummy type 2D", 2, r.b[2].dtt); check("B handle array: texture slot", 11, r.b[2].reg);
         check("B handle array: sampler kind", NVN_RB_SAMPU, r.b[3].kind); check("B handle array: sampler n", 32, r.b[3].n); check("B handle array: bindless", 1, r.bindless);
+        check("B sampler handle stays shifted by default", 0, r.b[1].raw_id);
         printf("%-60s %s\n", "B array of 32 handles in uniform slot 11 (texture + sampler)", fail == f1 ? "✓" : "✗");
+    }
+    {   // Ryujinx SeparateSamplerId: texture in c2, raw sampler ID in c10 (uniform slot 7).
+        NSDictionary *j = @{@"route": @"B", @"bindings": @[
+            @{@"kind": @"samp_ubo", @"reg": @7, @"off": @0, @"raw_id": @YES,
+              @"arg_id": @1, @"msl_name": @"fp_t_cb720898_2000005ASmplr", @"msl_type": @"sampler"}]};
+        check("B raw sampler: conversion succeeds", 0, nvn_refl_from_json(j, &r, err, sizeof err));
+        check("B raw sampler: kind", NVN_RB_SAMPU, r.b[0].kind);
+        check("B raw sampler: uniform slot", 7, r.b[0].reg);
+        check("B raw sampler: unshifted ID", 1, r.b[0].raw_id);
     }
     {   int f1 = fail;
         NSDictionary *b1 = @{@"route": @"B", @"bindings": @[@{@"kind": @"foo", @"arg_id": @0, @"msl_name": @"x", @"msl_type": @"constant _16*"}]};

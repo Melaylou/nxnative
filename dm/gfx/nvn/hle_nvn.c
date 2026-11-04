@@ -654,7 +654,11 @@ NVN(nvnProgramSetShaders, NVNboolean, NVNprogram *p, int n, const NVNshaderData 
             }
         }
         // DM_NVN_SHDUMP (debugging): keep a copy of the control section so the replay layer can save shaders missing from the map (never freed)
-        if (dump && sd[i].control) { void *c = malloc(0x880); memcpy(c, sd[i].control, 0x880); o->sd[i].control = c; }
+        if (dump && sd[i].control) {
+            uint32_t own, len = 0x880; memcpy(&own, (const uint8_t *)sd[i].control + 0x20, 4);
+            if (own >= 0x760 && own < len) len = own;
+            void *c = calloc(1, 0x880); memcpy(c, sd[i].control, len); o->sd[i].control = c;
+        }
     }
     OLOG("ProgramSetShaders %p n=%d data0=%#llx", (void *)p, n, n ? (unsigned long long)sd[0].data : 0ull);
     return 1;

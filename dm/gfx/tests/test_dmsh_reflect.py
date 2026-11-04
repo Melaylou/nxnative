@@ -78,6 +78,16 @@ class DriverTableArrays(unittest.TestCase):
         got = self.reflect([('array<texture2d<float>, 301>', 'fp_t2d_cb262146_10570000', 0)])
         self.assertNotEqual(got[0]['kind'], 'tex_c2a')
 
+    def test_separate_raw_sampler_id_from_guest_buffer(self):
+        got = self.reflect([('texture2d<float>', 'fp_t_cb720898_2002C086', 0),
+                            ('sampler', 'fp_t_cb720898_2002C086Smplr', 1),
+                            ('sampler', 'fp_t_cb720898_2002C086Smplr_w', 2)])
+        self.assertEqual((got[0]['kind'], got[0]['reg']), ('tex', 150))
+        for binding in got[1:]:
+            self.assertEqual((binding['kind'], binding['reg'], binding['off'], binding['raw_id']),
+                             ('samp_ubo', 7, 44, True))
+        self.assertEqual(got[2]['border_bit'], 0)
+
 
 def builder_unfillable():
     tree = ast.parse((TOOLS / 'dmsh_build.py').read_text())

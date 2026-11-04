@@ -687,6 +687,14 @@ def reflect(key, stage, msl, res):
             e.update(kind=abi.KIND_CBUF, reg=n - 3) if 3 <= n <= 16 else e.update(kind=abi.KIND_C1 if n == 1 else abi.KIND_DRVCB, bank=n)
         elif re.fullmatch(r'[a-z]+_s(\d+)', nm):
             e.update(kind=abi.KIND_SBUF, index=int(re.fullmatch(r'[a-z]+_s(\d+)', nm).group(1)))
+        elif (nm.endswith('Smplr') and
+              (mixed := re.fullmatch(r'[a-z]+_t\w*?_cb(\d+)_([0-9A-F]+)Smplr', nm)) and
+              int(mixed.group(1)) & 0xffff == 2 and
+              3 <= (int(mixed.group(1)) >> 16) - 1 <= 16 and
+              int(mixed.group(2), 16) >> 28 == 2):
+            # SeparateSamplerId: texture comes from driver c2, sampler is a raw ID in the guest UBO.
+            e.update(kind=abi.KIND_SAMP_UBO, reg=(int(mixed.group(1)) >> 16) - 4,
+                     off=((int(mixed.group(2), 16) >> 14) & 0x3fff) * 4, raw_id=True)
         elif decode_ubo_tex(nm[:-5] if nm.endswith('Smplr') else nm):   # bindless: the handle is in a uniform buffer (reg = uniform slot, off = byte offset)
             ut, us = decode_ubo_tex(nm[:-5] if nm.endswith('Smplr') else nm)
             if nm.endswith('Smplr'): e.update(kind=abi.KIND_SAMP_ID, reg=us[1]) if us[0] == 'id' else e.update(kind=abi.KIND_SAMP_UBO, reg=us[0], off=us[1])

@@ -471,9 +471,11 @@ HLE_FORCE("_ZN2nn5audio25GetAudioOutBufferDataSizeEPKNS0_14AudioOutBufferE", "bu
 HLE_FORCE("_ZN2nn5audio20AppendAudioOutBufferEPNS0_8AudioOutEPNS0_14AudioOutBufferE", "append a buffer to play", unsigned, h_au_Append, void *g, gbuf *b) {
     aout *a = ao(g);
     // Diagnostic switch DM_AUDIO_DUMP=<file>: every PCM block the game appends is written out as is (16-bit, 48 kHz, channel count per the OpenAudioOut log, usually 6). Used to judge "did a given sound play or not":
-    // cross-correlate the original game's audio against it (this is how the tier-one drop sound was verified). The file is opened only when the variable is set; when unset this costs only one extra cached check
-    { static FILE *df; static int on = -1; if (on < 0) { const char *e = getenv("DM_AUDIO_DUMP"); on = e != NULL; if (on && !(df = fopen(e, "wb"))) LOG("[RED] DM_AUDIO_DUMP cannot open %s", e); }
-      if (df && b && b->ptr && b->size) fwrite(b->ptr, 1, (size_t)b->size, df); }
+    // cross-correlate the original game's audio against it (this is how the tier-one drop sound was verified). Optional DM_AUDIO_DUMP_MAX bounds diagnostic captures.
+    { static FILE *df; static int on = -1; static uint64_t written, limit; if (on < 0) { const char *e = getenv("DM_AUDIO_DUMP"), *m = getenv("DM_AUDIO_DUMP_MAX"); on = e != NULL; limit = m ? strtoull(m, NULL, 0) : 0; if (on && !(df = fopen(e, "wb"))) LOG("[RED] DM_AUDIO_DUMP cannot open %s", e); }
+      if (df && b && b->ptr && b->size) { size_t n = (size_t)b->size; if (limit && written >= limit) { fclose(df); df = NULL; }
+        else { if (limit && n > limit - written) n = (size_t)(limit - written); size_t w = fwrite(b->ptr, 1, n, df); written += w;
+          if (limit && written >= limit) { fclose(df); df = NULL; LOG("audio PCM diagnostic capture reached its %llu-byte limit", (unsigned long long)limit); } } } }
     pthread_mutex_lock(&a->m);
     uint32_t qt = atomic_load_explicit(&a->q_tail, memory_order_relaxed);
     uint32_t qh = atomic_load_explicit(&a->q_head, memory_order_acquire);

@@ -153,5 +153,15 @@ int main(void) {
     h_oe_SetFocusMode(3); dm_applet_enter("test");
     CHECK(empty() && h_oe_GetFocus() == 2, "focus mode 3: an applet changes the state without a notification");
     dm_applet_leave(); CHECK(empty() && h_oe_GetFocus() == 1, "focus mode 3: back to 1 without a notification");
+#if TARGET_OS_OSX
+    reset(); setenv("DM_KEEP_GUEST_FOCUSED", "1", 1);
+    dm_focus_set(2);
+    CHECK(h_oe_GetFocus() == 1 && dm_focus_now() == 2 && empty(), "debug focus: guest focused while physical focus is lost, no notification");
+    dm_applet_enter("test"); CHECK(h_oe_GetFocus() == 2 && pop_is(15), "debug focus: applet still takes guest focus");
+    dm_applet_leave(); CHECK(h_oe_GetFocus() == 1 && pop_is(15), "debug focus: applet close restores guest focus");
+    dm_focus_set(3); CHECK(h_oe_GetFocus() == 3 && pop_is(15), "debug focus: background remains visible to guest");
+    dm_focus_set(1); CHECK(h_oe_GetFocus() == 1 && pop_is(15), "debug focus: restore works");
+    unsetenv("DM_KEEP_GUEST_FOCUSED");
+#endif
     printf("== oe %d checks, %d failed ==\n", checks, fails); return fails != 0;
 }
