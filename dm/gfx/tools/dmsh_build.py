@@ -13,7 +13,7 @@ import dmsh_geometry, dmsh_atomic, dmsh_abi as abi   # abi: the driver segment l
 DM_ROOT = os.environ.get('DM_ROOT') or os.path.expanduser('~/dm-work')   # Workspace root (game files, build outputs and run artifacts are all under it)
 HOME = os.path.expanduser('~')
 dm_dir, out = sys.argv[1:3]; want = set(sys.argv[3:]); cache_root = out
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import dmsh_chain, dmsh_fetch, dmsh_facts, dmsh_mtlcache, dmsh_vin, dmsh_pull, dmsh_alpha, dmsh_logic, dmsh_mesh, tool_lock   # translation chain version: verify the tools against the lock file first; build output goes into b-<V>/
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import dmsh_chain, dmsh_fetch, dmsh_facts, dmsh_mtlcache, dmsh_vin, dmsh_pull, dmsh_alpha, dmsh_logic, dmsh_mesh, dmsh_tess, tool_lock   # translation chain version: verify the tools against the lock file first; build output goes into b-<V>/
 _bad = tool_lock.check_tools()
 if _bad: sys.exit('\n'.join('[RED] translation chain tools do not match the lock file: ' + b for b in _bad) + '\n(if the tools changed, run tool_lock.py --update-lock and commit the lock file; if the translator just was not rebuilt, rebuild it)')
 CHAIN = dmsh_chain.version(); out = os.path.join(out, 'b-' + CHAIN)
@@ -440,6 +440,7 @@ def early_fragment_tests(ctl, code):
     is left as it is: tested early, the depth it computes would not be the one tested"""
     return len(ctl) > 0x718 and ctl[0x718] != 0 and len(code) >= 0x50 and not struct.unpack_from('<I', code, 19 * 4)[0] & 2
 
+TESS_MODE = {}   # domain shader key -> its control section's tessellation mode (job_for)
 def job_for(key, name, rec, w):
     ci = rec.find(bytes.fromhex('34127698')); code = rec[0x38:ci]; stage = name[:2]
     c1o, c1t = struct.unpack_from('<2I', rec, ci + 0x700)   # control segment +0x700: c1 relative to the start of the instruction area, +0x704: total length of the instruction area (c1 = what lies between the two; lengths across the whole library are 0 / 256 / 512 / 768)
@@ -454,6 +455,7 @@ def job_for(key, name, rec, w):
         code = code[0x100:]
     cp = os.path.join(w, key + '.bin'); open(cp, 'wb').write(code)
     tf = tf_layout(key, rec[ci:]) if stage in ('vs', 'gs') else None
+    if stage == 'ds': TESS_MODE[key] = dmsh_tess.control_mode(rec[ci:])   # the domain's own tessellation mode (dmsh_tess.py): the translator answers a fixed default
     ez = stage == 'ps' and early_fragment_tests(rec[ci:], code)
     j = {'key': key, 'stage': stage, 'code': cp, 'tex': {}, 'img': {}, 'attr': {}, 'fout': {}, 'c1': c1.hex(), **({'tf': tf} if tf else {}), **({'early_fragment_tests': True} if ez else {}),
          'debug': os.environ.get('XLATE_DEBUG', '1') != '0', 'reduced': os.environ.get('XLATE_REDUCED', '1') == '1'}   # translation options (see dmsh_xlate/Program.cs); relaxed precision is on by default (GPU float last-bit error does not enter game state, whole frame −26% on the second Mac)   # c1: used by the translator to read indirect jump tables
@@ -769,7 +771,7 @@ RULES = []   # MSL rewrite rules attached by shader name (function, applicabilit
 # CODE_FP hashes the code form of this file and its helper modules (dmsh_chain.code_form): editing a comment, a docstring or the layout does not change any shader's key.
 # The library ABI enters as its values (dmsh_abi.VALUES), so a comment in dmsh_abi.h does not change a key either.
 # The first-stage code fingerprint does not include dmsh_fetch.py; readable-tile variants get a separate second-stage cache keyed on the generated MSL.
-CODE_FP = hashlib.sha256(source_without_rule_bodies() + b''.join(b'\0' + dmsh_chain.code_form(open(m.__file__, 'r').read()) for m in (dmsh_chain, dmsh_geometry, dmsh_atomic, abi) + ((ios_metal,) if IOSOUT else ()))
+CODE_FP = hashlib.sha256(source_without_rule_bodies() + b''.join(b'\0' + dmsh_chain.code_form(open(m.__file__, 'r').read()) for m in (dmsh_chain, dmsh_geometry, dmsh_tess, dmsh_atomic, abi) + ((ios_metal,) if IOSOUT else ()))
                          + b'\0abi\0' + repr(sorted(abi.VALUES.items())).encode()).hexdigest()
 TOOL_FP = tool_fingerprint().encode()
 
@@ -1134,6 +1136,12 @@ def finish(key, w, j, c1):
     try: src = pool_arrays(src)   # handles traced to no slot read the pools the replay keeps (see pool_arrays)
     except ValueError as e: return 'pool rewrite failed', str(e)[:160], None
     src = border_emu(src); open(msl, 'w').write(src)   # border colours Metal lacks (see border_emu)
+    tess = None
+    if j['stage'] in ('hs', 'ds'):   # hull as a plain kernel, domain as a plain vertex function on a fixed grid (dmsh_tess.py); unsupported shapes keep the old source
+        try:
+            src, tess = dmsh_tess.hull(src, os.path.join(w, key + '.spv')) if j['stage'] == 'hs' else dmsh_tess.domain(src, os.path.join(w, key + '.spv'), TESS_MODE.get(key))
+            open(msl, 'w').write(src)
+        except ValueError as e: tess = {'unsupported': str(e)[:160]}
     pad = []
     if j['stage'] == 'vs':   # outputs start as (0,0,0,1) (see vs_init); no point size beside a layer output (see vs_layer); the base instance from Metal (see vs_base_instance)
         src = vs_base_instance(vs_layer(vs_init(src))); open(msl, 'w').write(src)
@@ -1152,6 +1160,8 @@ def finish(key, w, j, c1):
         plain = full
         full, lay = vs_layer_entry(full)   # layer entry points for a slice-writing geometry shader (see vs_layer_entry)
         open(msl, 'w').write(full)
+    if j['stage'] == 'ds' and tess and 'unsupported' not in tess:   # the domain is the last stage before the rasterizer: the two depth-convention entry points (see vs_depth)
+        src, full = vs_depth(src); open(msl, 'w').write(full)
     fu, fmask = fs_uint(src) if j['stage'] == 'ps' else (None, 0)   # the integer-output entry points (see fs_uint); the analysis below uses the source with only main0
     fd = fs_dual(src) if j['stage'] == 'ps' and key in DUAL_WANT else None   # the dual-source entry point (see fs_dual), from the source with only main0
     if fu or fd: plain = src; open(msl, 'w').write((fu or src) + (fd or ''))
@@ -1170,14 +1180,14 @@ def finish(key, w, j, c1):
     try: binds = reflect(key, j['stage'], src, res)
     except ValueError as e: return 'reflection failed', str(e)[:160], None
     refl = {'key': key + '_b', 'route': 'B', 'chain': CHAIN, 'dm_ctl': key, 'source': f'{name}#{k}', 'pc_paired': pc_of[key], 'stage': j['stage'],
-            'entry': entry.group(2) if entry else 'main0', 'msl_entry_kind': entry.group(1) if entry else None, **({'entry_z': 'main0_z', 'entry_geometry_capture': 'main0_gs'} if j['stage'] == 'vs' else {}),
+            'entry': entry.group(2) if entry else 'main0', 'msl_entry_kind': entry.group(1) if entry else None, **({'entry_z': 'main0_z', 'entry_geometry_capture': 'main0_gs'} if j['stage'] == 'vs' else {}), **({'entry_z': 'main0_z'} if j['stage'] == 'ds' and tess and 'unsupported' not in tess else {}),
             **({'entry_discard': 'main0_discard'} if discard else {}),
             **({'entry_tf': 'main0_tf', 'tf_strides': [e['stride'] if e else 0 for e in j['tf']]} if j.get('tf') else {}),
             **({'entry_layer': 'main0_l', 'entry_layer_z': 'main0_lz', 'layer_from': lay} if lay else {}), **({'entry_u': 'main0_u'} if fu else {}), **({'entry_m': 'main0_m', 'uint_mask_m': fmask} if fu and fmask else {}), **({'entry_d': 'main0_d'} if fd else {}),
             'threadgroup_size': j.get('local'), 'c1': c1.hex(), 'notes': res['notes'] + (['not in the answer table, queries use defaults'] if j.get('no_facts') else []), 'drv_reads': dr, 'drv_unfillable': unfillable(dr, j['stage']),
             'bindings': binds,
             'vertex_inputs': [{'location': int(m.group(2)), 'msl_type': m.group(1)} for m in re.finditer(r'(\w+)\s+\w+\s*\[\[attribute\((\d+)\)\]\]', src)],
-            'raster': raster_facts(j['stage'], src), 'vs_pad': pad}
+            'raster': raster_facts(j['stage'], src), 'vs_pad': pad, **({'tess': tess} if tess else {})}
     if j['stage'] == 'vs': full = open(msl).read(); vin_finish(key, full, refl); pull_finish(key, full, refl)   # the shadow-input and pulling libraries (dmsh_vin.py, dmsh_pull.py), from the source with every entry point
     if j['stage'] == 'ps': full = open(msl).read(); alpha_finish(key, full, refl); logic_finish(key, full, refl)   # the alpha test and logic operation libraries (dmsh_alpha.py, dmsh_logic.py), from the source with every entry point
     write_refl(key, refl)
