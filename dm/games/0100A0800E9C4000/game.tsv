@@ -1,0 +1,39 @@
+# Game profile of The Witcher 3: Wild Hunt — Complete Edition (Switch, update 4.04b / v458752), Mac only so far; see README.md.
+# Started as the provisional profile scripts/build_ipa_from_nsp.py guessed from the survey (dm/games/profile_guess.py); the memory and module rows are still those guesses.
+
+# ---- Identity ----
+title_id	0100A0800E9C4000
+program_id	0100A0800E9C4000
+
+# ---- App ----
+name	The Witcher 3: Wild Hunt — Complete Edition
+ipa	TheWitcher3WildHuntCompleteEdition.ipa
+app_category	public.app-category.games
+
+# ---- Versions ----
+build	v458752	4.04b	main=d27fd8a515077f340c66cec23b13c0fa	sdk=d5a1029a57d8cd4fdf4eacad87b0cfd0
+package	v458752
+shader_versions	v458752
+
+# ---- Files ----
+# every module main imports from
+modules	main sdk
+romfs_marker	content/patch0/texture.cache
+zip_store	.bundle:.cache:.dds:.png:.redscripts:.snd:.store:.usm:.w3speech:.metallib
+
+# ---- Memory ----
+# the NPDM declares 4 MB of system resource (virtual address memory) and main sets a heap: a 5 GB block with a large alias region; the heap check sizes the heap region from the heap the game asks for
+mem_reserve	0x140000000
+mem_alias	0x118000000
+mem_stack	0x10000000
+app_pool	0xCD500000
+# the NPDM declares 4 MB of system resource
+sys_resource	0x400000
+
+# ---- Shader split ----
+shader_groups	/bin/=bin /dlc/=dlc /content/=content
+shader_note	The Witcher 3: Wild Hunt — Complete Edition shaders (provisional profile)
+
+# heap check: 2026-11-02, heap 0.00 GB
+
+# address regions: 2026-11-02, in its first 15 s in nnMain the game's regions reach alias +48.97 GB, past the profile's 4.38 GB alias region, the iPhone layout: the request returning to main+0x89f0 takes 48.00 GB: a smaller one works only if its allocator places nothing by fixed offsets (docs/reference/memory.md, Virtual address memory and the alias region) (rewrite ab4b5e956129)
