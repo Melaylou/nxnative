@@ -55,7 +55,8 @@ namespace Ryujinx.Graphics.Shader.Translation.Optimizations
                 }
 
                 if (!converted &&
-                    !GenerateBindlessAccess(block, resourceManager, gpuAccessor, texOp, node))
+                    !GenerateBindlessAccess(block, resourceManager, gpuAccessor, texOp, node) &&
+                    !TryResolveHandlePhi(block, resourceManager, gpuAccessor, texOp, node))
                 {
                     // If we can't do bindless elimination, remove the texture operation.
                     // Set any destination variables to zero.
@@ -406,6 +407,201 @@ namespace Ryujinx.Graphics.Shader.Translation.Optimizations
             }
 
             return true;
+        }
+
+
+        // nxnative: a handle that reaches a texture read through phis built from predicated Maxwell code. The translator's SSA joins the handle register with what
+        // it holds on paths where the predicated read does not run: Undefined (never written there), float temporaries, texture results or memory loads the compiler
+        // kept in the same register, constants, the sampler word before its shift, or the handle before the texture word was ORed in. Only a complete handle can be what
+        // the read uses: on the hardware a value without the texture word, or a raw sampler ID in the texture bits, names another texture. The read was removed and its
+        // result 0 (The Witcher 3: 2,971 reads in 2,504 shaders, the deferred shadow resolve and the environment-probe ambient among them). The handle is rebuilt here from
+        // the phi inputs under these rules, and only when exactly one complete handle remains:
+        //  - Undefined, non-handle values (anything but constant buffer words, constants, ShiftLeft by 20 and BitwiseOr) and loop back edges are dropped;
+        //  - constants are dropped when a constant-buffer input remains (a constant sampler handle stays when it is all there is);
+        //  - identical inputs merge; of {x, x << 20} the shifted sampler word is taken;
+        //  - of inputs where one contains every other as a subterm (the handle and its partial values), the most complete is taken.
+        // Several different complete handles (a handle chosen at run time from several uniform words) stay as before. The handle is materialized in the canonical shape
+        // TryConvertBindless reads (a c[2] word, or (sampler << 20) | c[2] word) before the read.
+        private enum HandleKind { Cbuf, Const, Shl, Or }
+
+        private sealed class HandleExpr
+        {
+            public HandleKind Kind;
+            public int Slot, Offset, Value;
+            public HandleExpr A, B;
+
+            public bool Same(HandleExpr o) => o != null && Kind == o.Kind && Slot == o.Slot && Offset == o.Offset && Value == o.Value &&
+                (A == null ? o.A == null : A.Same(o.A)) && (B == null ? o.B == null : B.Same(o.B));
+
+            public bool Contains(HandleExpr o) => Same(o) || (A != null && A.Contains(o)) || (B != null && B.Contains(o));
+        }
+
+        private static readonly HandleExpr Ambiguous = new() { Kind = HandleKind.Const, Value = int.MinValue, Slot = -1 };
+
+        private static HandleExpr ResolveHandle(Operand op, int depth, HashSet<INode> visiting)
+        {
+            if (op == null || depth > 48)
+            {
+                return depth > 48 ? Ambiguous : null;
+            }
+
+            switch (op.Type)
+            {
+                case OperandType.ConstantBuffer:
+                    return new HandleExpr { Kind = HandleKind.Cbuf, Slot = op.GetCbufSlot(), Offset = op.GetCbufOffset() };
+                case OperandType.Constant:
+                    return new HandleExpr { Kind = HandleKind.Const, Value = op.Value };
+                case OperandType.LocalVariable:
+                    break;
+                default:
+                    return null;   // Undefined, attributes, registers never written: a path that does not reach the read
+            }
+
+            if (op.AsgOp is PhiNode phi)
+            {
+                if (!visiting.Add(phi))
+                {
+                    return null;   // a loop back edge
+                }
+
+                List<HandleExpr> inputs = new();
+                bool ambiguous = false;
+
+                for (int index = 0; index < phi.SourcesCount; index++)
+                {
+                    HandleExpr e = ResolveHandle(phi.GetSource(index), depth + 1, visiting);
+
+                    if (e == Ambiguous)
+                    {
+                        ambiguous = true;
+                    }
+                    else if (e != null && !inputs.Exists(x => x.Same(e)))
+                    {
+                        inputs.Add(e);
+                    }
+                }
+
+                visiting.Remove(phi);
+
+                if (ambiguous)
+                {
+                    return Ambiguous;
+                }
+
+                if (inputs.Exists(x => x.Kind != HandleKind.Const))
+                {
+                    inputs.RemoveAll(x => x.Kind == HandleKind.Const);
+                }
+
+                if (inputs.Count == 0)
+                {
+                    return null;
+                }
+
+                if (inputs.Count == 1)
+                {
+                    return inputs[0];
+                }
+
+                if (inputs.Count == 2)
+                {
+                    HandleExpr shl = inputs.Find(x => x.Kind == HandleKind.Shl);
+                    HandleExpr other = inputs.Find(x => x != shl);
+
+                    if (shl != null && shl.A.Same(other))
+                    {
+                        return shl;
+                    }
+                }
+
+                List<HandleExpr> full = inputs.FindAll(x => inputs.TrueForAll(y => x.Contains(y)));
+
+                return full.Count == 1 ? full[0] : Ambiguous;
+            }
+
+            if (op.AsgOp is Operation operation)
+            {
+                switch (operation.Inst)
+                {
+                    case Instruction.Copy:
+                        return ResolveHandle(operation.GetSource(0), depth + 1, visiting);
+                    case Instruction.ShiftLeft:
+                        {
+                            Operand shift = operation.GetSource(1);
+
+                            if (shift.Type != OperandType.Constant || shift.Value != 20)
+                            {
+                                return null;
+                            }
+
+                            HandleExpr a = ResolveHandle(operation.GetSource(0), depth + 1, visiting);
+
+                            return a == null || a == Ambiguous ? Ambiguous : new HandleExpr { Kind = HandleKind.Shl, A = a };
+                        }
+                    case Instruction.BitwiseOr:
+                        {
+                            HandleExpr a = ResolveHandle(operation.GetSource(0), depth + 1, visiting);
+                            HandleExpr b = ResolveHandle(operation.GetSource(1), depth + 1, visiting);
+
+                            return a == null || b == null || a == Ambiguous || b == Ambiguous ? Ambiguous : new HandleExpr { Kind = HandleKind.Or, A = a, B = b };
+                        }
+                }
+            }
+
+            return null;   // float temporaries, texture results, memory loads: not a handle
+        }
+
+        private static bool TryResolveHandlePhi(BasicBlock block, ResourceManager resourceManager, IGpuAccessor gpuAccessor, TextureOperation texOp, LinkedListNode<INode> node)
+        {
+            if (texOp.Inst != Instruction.TextureSample && !texOp.Inst.IsTextureQuery())
+            {
+                return false;
+            }
+
+            Operand original = texOp.GetSource(0);
+            HandleExpr e = ResolveHandle(original, 0, new HashSet<INode>());
+
+            if (e == null || e == Ambiguous)
+            {
+                return false;
+            }
+
+            Operand handle;
+
+            if (e.Kind == HandleKind.Cbuf && e.Slot == 2)
+            {
+                handle = OperandHelper.Cbuf(e.Slot, e.Offset);
+            }
+            else if (e.Kind == HandleKind.Or)
+            {
+                HandleExpr shl = e.A.Kind == HandleKind.Shl ? e.A : e.B;
+                HandleExpr tex = shl == e.A ? e.B : e.A;
+
+                if (shl.Kind != HandleKind.Shl || shl.A.Kind != HandleKind.Cbuf || tex.Kind != HandleKind.Cbuf || tex.Slot != 2)
+                {
+                    return false;
+                }
+
+                Operand sampler = OperandHelper.Local();
+                handle = OperandHelper.Local();
+                block.Operations.AddBefore(node, new Operation(Instruction.ShiftLeft, sampler, OperandHelper.Cbuf(shl.A.Slot, shl.A.Offset), OperandHelper.Const(20)));
+                block.Operations.AddBefore(node, new Operation(Instruction.BitwiseOr, handle, sampler, OperandHelper.Cbuf(tex.Slot, tex.Offset)));
+            }
+            else
+            {
+                return false;
+            }
+
+            texOp.SetSource(0, handle);
+
+            if (TryConvertBindless(block, resourceManager, gpuAccessor, texOp))
+            {
+                gpuAccessor.Log("Resolved a texture handle reaching the read through phis (BindlessElimination.TryResolveHandlePhi).");
+                return true;
+            }
+
+            texOp.SetSource(0, original);
+            return false;
         }
 
         private static bool TryConvertBindless(BasicBlock block, ResourceManager resourceManager, IGpuAccessor gpuAccessor, TextureOperation texOp)
