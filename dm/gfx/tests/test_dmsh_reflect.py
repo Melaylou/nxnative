@@ -88,6 +88,13 @@ class DriverTableArrays(unittest.TestCase):
                              ('samp_ubo', 7, 44, True))
         self.assertEqual(got[2]['border_bit'], 0)
 
+    def test_separate_sampler_word_is_not_a_combined_slot(self):
+        # The Witcher 3's deferred lighting: sampler at c10 word 10 (byte 0x28, which in c2 would be combined slot 1), texture at c2 word 0x7C = separate texture 145
+        got = self.reflect([('texture2d<float>', 'fp_t_cb720898_2002807C', 0),
+                            ('sampler', 'fp_t_cb720898_2002807CSmplr', 1)])
+        self.assertEqual((got[0]['kind'], got[0]['reg']), ('tex', 145))
+        self.assertEqual((got[1]['kind'], got[1]['reg'], got[1]['off'], got[1]['raw_id']), ('samp_ubo', 7, 40, True))
+
 
 def builder_unfillable():
     tree = ast.parse((TOOLS / 'dmsh_build.py').read_text())

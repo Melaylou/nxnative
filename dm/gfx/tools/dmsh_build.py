@@ -580,7 +580,10 @@ def decode_tex(name):
     words = [o0] + ([o1] if ty else [])
     if re.match(r'[a-z]+_i', name):   # image
         return next((slot(x, IMG_BASE, tb) for x in words if IMG_BASE <= x * 4 < IMG_BASE + abi.C2_ROW * IMG_SLOTS and slot(x, IMG_BASE, tb) is not None), None), None, ty
-    tw = [o0] if ty == 3 else words
+    # Only the first offset names the texture when the second is not a c2 texture word: type 3 carries a constant sampler ID there, type 2 (SeparateSamplerId) a word of the
+    # sampler's own uniform bank (slots >> 16). Tested as a c2 word, that one used to win as a combined slot (The Witcher 3's deferred lighting fp_t_cb720898_2002807C: sampler at
+    # c10 word 10 = byte 0x28 = combined slot 1, texture at c2 word 0x7C = separate texture 145, the slot the game binds)
+    tw = [o0] if ty in (2, 3) else words
     t = next((slot(x, TEX_BASE, tb) for x in tw if slot(x, TEX_BASE, tb) is not None and x * 4 < SEPTEX_BASE), None)
     if t is None: t = next((SEPTEX_SLOT0 + slot(x, SEPTEX_BASE, tb) for x in tw if slot(x, SEPTEX_BASE, tb) is not None and x * 4 < SAMP_BASE), None)
     s = next((slot(x, SAMP_BASE, sb) for x in words if x * 4 >= SAMP_BASE and slot(x, SAMP_BASE, sb) is not None), None) if ty != 3 else None
