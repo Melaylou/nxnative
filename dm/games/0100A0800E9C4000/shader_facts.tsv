@@ -30,7 +30,7 @@
 946dd1d711196665	{"local":[16,16,1],"shared":0}
 99b1e05bf7864d46	{"local":[256,1,1],"shared":0}
 9af9fb6724b8ce98	{"local":[16,16,1],"shared":0}
-a52ac3530463868c	{"tex": {"128": "2d"}}
+a52ac3530463868c	{"tex":{"128":"2d"}}
 ade5bcd92283777a	{"local":[8,8,1],"shared":2048}
 b12e82609e34b51c	{"local":[16,16,1],"shared":0}
 b1594498b0dfffde	{"local":[1024,1,1],"shared":0}
