@@ -3,6 +3,7 @@
 11130a61f4a6f3ec	{"img":{"0":{"fmt":"R8G8Unorm","type":"2d"},"1":{"fmt":"R11G11B10Float","type":"2d"}},"local":[16,16,1],"shared":1552}
 11fa3a5379baf2d4	{"local":[8,8,1],"shared":2048}
 2bba128994b7f923	{"local":[16,16,1],"shared":0}
+2dcecea911db30ef	{"uint_entry":true}
 2f72f6f7f568ecfa	{"local":[16,16,1],"shared":592}
 31188b8669165953	{"local":[8,8,1],"shared":3072}
 3647393ca94425d0	{"local":[16,16,1],"shared":0}

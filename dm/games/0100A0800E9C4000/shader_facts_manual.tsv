@@ -3,3 +3,5 @@
 11130a61f4a6f3ec	{"img":{"0":{"fmt":"R8G8Unorm","type":"2d"},"1":{"fmt":"R11G11B10Float","type":"2d"}},"local":[16,16,1],"shared":1552}
 a52ac3530463868c	{"tex": {"128": "2d"}}
 eacf9338c2835b9e	{"tex":{"128":"2d","129":"2d","130":"2d","131":"2d","132":"2d"}}
+# The terrain material array copy (2dcecea911db30ef: an R16Uint tile into a slice of an R16Uint array; the same shader also copies into float targets): an integer entry point main0_u, not a fout fact
+2dcecea911db30ef	{"uint_entry":true}
