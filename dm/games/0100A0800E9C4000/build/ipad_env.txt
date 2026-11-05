@@ -1,0 +1,4 @@
+# The Witcher 3 on an iPad (M4, 16 GB, iPadOS 27.2): environment switches baked into the IPA (--env-file). Baseline G6.
+# 50 GiB alias region: the most iPadOS granted with extended virtual addressing (64 GiB failed the reservation); the game reaches about +49 GiB.
+DM_ALIAS_SIZE=0xC80000000
+DM_AUDIO=1

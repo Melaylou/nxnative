@@ -1,0 +1,5 @@
+# The Witcher 3 on the Mac: environment switches baked into the Mac app (--env-file). Baseline G6.
+# A DT_INIT_ARRAY constructor reserves 48 GiB at main+0x89e8 and the game uses fixed offsets up to alias +48.97 GiB: the alias region must be 64 GiB (Switch-sized).
+DM_ALIAS_SIZE=0x1000000000
+DM_PRESENT_LINK=0
+DM_AUDIO=1
