@@ -42,7 +42,7 @@ Update 4.04b (v458752), SDK 15. CD PROJEKT RED's REDengine 3 (Saber Interactive'
 Inputs: the base NSP (v0) and update v458752 NSP in one folder (`<NSP folder>`), `prod.keys`, this repository, Xcode with the Metal toolchain, and a Python venv set up as in the top-level README. Run from the repository root; the work folder holds the extraction (about 35 GB), the shader store and the outputs.
 
 ```sh
-G=dm/games/0100A0800E9C4000/build
+G="$PWD/dm/games/0100A0800E9C4000/build"   # absolute: build_ipa.sh reads DM_ENTITLEMENTS from its own working folder
 # Mac app
 python3 scripts/build_ipa_from_nsp.py <NSP folder> -k <prod.keys> --platform mac-app --work-dir <work folder> \
   --allow-other-metal --env-file $G/mac_env.txt -o <out>/TheWitcher3.app --keep-extracted
