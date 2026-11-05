@@ -10,6 +10,7 @@ Update 4.04b (v458752), SDK 15. CD PROJEKT RED's REDengine 3 (Saber Interactive'
 | Shader containers | `dm/gfx/tools/shader_split.py` (RDHS / FZLC readers) | The game keeps its shaders in `content/*/shadernx.cache` (and each DLC's) and `content/content0/staticshadernx.cache`: 29,673 shaders, against the 621 the generic split found. |
 | Tessellation | `dm/gfx/nvn/nvn_tess.inc`, `dm/gfx/tools/dmsh_tess.py` | Terrain and water are tessellated quad patches (7 hull and 13 domain shaders, fractional_even, cw; the hulls set inside = min of the edges). Replayed with adaptive subdivision in a hardware-style layout. |
 | Bindless texture handles through phis | translator `BindlessElimination.TryResolveHandlePhi` | Restores 1,866 texture reads (including the deferred shadow resolve and the probe ambient) that were forced to 0. |
+| `depth_mode zero` | `game.tsv` | The game selects near = 0 depth. Without it the pipeline archive bundled with the app is built for near = −w and goes unused, and a first launch builds all 25,330 pipelines (about 3.5 minutes). |
 | `DM_WINDOW=1 DM_PRESENT_LINK=0` | environment | Settings of the verified Mac runs. |
 
 ## Status (Mac)

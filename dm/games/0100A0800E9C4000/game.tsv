@@ -33,6 +33,8 @@ sys_resource	0x400000
 # ---- Shader split ----
 shader_groups	/bin/=bin /dlc/=dlc /content/=content
 shader_note	The Witcher 3: Wild Hunt — Complete Edition shaders (provisional profile)
+# the game selects near-zero NVN depth (nvnDeviceSetDepthMode, log: "depth mode near=0"); offline pipeline bases use main0_z
+depth_mode	zero
 
 # heap check: 2026-11-02, heap 0.00 GB
 
