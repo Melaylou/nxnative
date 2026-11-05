@@ -30,6 +30,10 @@ app_pool	0xCD500000
 # the NPDM declares 4 MB of system resource
 sys_resource	0x400000
 
+# ---- Frame rate ----
+# the game caps itself only through present interval 2 (set at window creation) and its logic runs on real time (2026-11-05: 60.0 fps at the same game-clock speed as 30): offer the 60 fps toggle
+fps_unlock	on
+
 # ---- Shader split ----
 shader_groups	/bin/=bin /dlc/=dlc /content/=content
 shader_note	The Witcher 3: Wild Hunt — Complete Edition shaders (provisional profile)
