@@ -1,5 +1,7 @@
 # nxnative
 
+> **This is the `witcher3-preview` branch of a fork, not upstream nxnative.** It adds The Witcher 3 and the general changes it needed, for testing while they're discussed upstream. See [PREVIEW.md](PREVIEW.md). Upstream is [seedds/nxnative](https://github.com/seedds/nxnative).
+
 Play your own Nintendo Switch games natively on iPhone and iPad. Bring your game (its NSP files) and your `prod.keys`; one script turns them into an IPA that you sideload.
 
 It is not an emulator: the game's own code runs directly on the Apple chip, with Switch graphics rebuilt on Metal. Nothing from any game is in this repository, and the project is not affiliated with Nintendo or any game publisher.
