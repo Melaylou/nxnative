@@ -12,7 +12,7 @@ It is not an emulator: the game's own code runs directly on the Apple chip, with
 
 - **Render size and shape (new):** the game can render above its fixed 1280 × 720 and at your screen's own shape. Choose **Render size** in the settings: **Fit the screen** at 720, 1080 or 1440 lines.
   - Wider screens show more at the sides; narrower ones, such as a 4:3 iPad, show more above and below. Nothing is cropped or stretched.
-  - Tested on the Mac at 1080p, 4:3, 21:9 and the screen's shape, and on an M4 iPad Pro at 1920×1440 (60 fps). Untested on the iPhone.
+  - Tested on the Mac at 1080p, 4:3, 21:9 and the screen's shape, and on an M4 iPad Pro, where 1080 lines holds 60 fps. Untested on the iPhone.
   - [Details](docs/settings.md#render-size).
 - **All of the game's shaders:** readers for REDengine's shader containers, so the game gets all of its 29,673 shaders instead of 621.
 - **Bindless texture fix:** a shader translator fix that brings back 1,866 texture reads that used to return nothing.

@@ -16,7 +16,7 @@ This branch, `witcher3-preview`, is a **preview** of the changes that bring **Th
 - **Render size and shape (new):** The Witcher 3 can render at any size and at your screen's own shape, instead of its fixed 1280×720. Choose **Render size** in the settings: **Fit the screen** at 720, 1080 or 1440 lines, or the game's own 720p (the default). It sets `DM_RENDER_SIZE`, which also takes an exact `<width>x<height>`.
   - Wider screens show more at the sides, and narrower ones (4:3 iPads) more above and below (Vert+), so nothing is cropped or stretched.
   - Graphics memory and the game's output settings follow the chosen size, and lighting buffers that sized for 720p no longer hide the HUD at higher sizes.
-  - Tested on the Mac at 1920×1080, 1440×1080 (4:3), 2560×1080 (21:9) and the screen's shape, and on an M4 iPad Pro (13-inch, 16 GB) at **Fit the screen (1440 lines)**: 1920×1440 filling the screen, 60 fps in White Orchard, about 3.4 GB of memory, no crash. The iPhone is untested.
+  - Tested on the Mac at 1920×1080, 1440×1080 (4:3), 2560×1080 (21:9) and the screen's shape, and on an M4 iPad Pro (13-inch, 16 GB), filling the screen with no crash. With the 60 fps toggle on, **1080 lines** (1440×1080) holds 60 fps in White Orchard (3.1 GB of memory): the recommended choice on the iPad. **1440 lines** (1920×1440) is sharper but runs at about 40–45 fps (GPU-bound, 3.4 GB). The iPhone is untested.
   - The UI has layouts for 16:9, 4:3 and 21:9; at other shapes the HUD and menus keep a 16:9 area in the middle.
 
 ## Building
