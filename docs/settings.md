@@ -3,7 +3,7 @@
 The screen before the game starts shows the settings the game supports. A setting that only matters while another is on appears under it and disappears when that one is turned off. Tap **Play** to start; the app remembers your choices for the next start. All settings are on one scrollable screen, under **Game**, **Controls** and **Performance**. Tap a menu or move a slider there; no settings page needs opening. **Upscaling** is in **Game**, beside **Console mode**. A Mac app shows the same settings in a [window of its own](#the-mac-settings-window).
 
 - [Tested defaults](#tested-defaults)
-- [Game](#game): [Frame rate](#frame-rate), [60 fps](#60-fps), [Render scale](#render-scale), [Console mode](#console-mode), [Upscaling](#upscaling), [Game language](#game-language), [Frame-rate counter](#frame-rate-counter)
+- [Game](#game): [Frame rate](#frame-rate), [60 fps](#60-fps), [Render scale](#render-scale), [Render size](#render-size), [Console mode](#console-mode), [Upscaling](#upscaling), [Game language](#game-language), [Frame-rate counter](#frame-rate-counter)
 - [Controls](#controls): [Touch feedback](#touch-feedback), [Game rumble](#game-rumble), [Rumble strength](#rumble-strength), [Rumble cutoff](#rumble-cutoff)
 - [Performance](#performance): [Frame buffering](#frame-buffering), [Metal 4 pipelines](#metal-4-pipelines), [Pipeline prebuild](#pipeline-prebuild), [Encode thread](#encode-thread), [Hold frames when late](#hold-frames-when-late), [Performance HUD](#performance-hud), [Reset to tested defaults](#reset-to-tested-defaults)
 - [The Mac settings window](#the-mac-settings-window): [Display mode](#display-mode)
@@ -31,6 +31,10 @@ Games that limit themselves to 30 fps only by how often they ask for a new pictu
 ### Render scale
 
 The size of the 3D picture, from 50 to 100 %. Below 100 % the size is fixed there and the game's own dynamic resolution is off; 100 % keeps the game's own. Lower can be lighter on the GPU but is blurrier; the HUD and text keep their sharpness. Only games the app can scale offer it.
+
+### Render size
+
+The size and shape the game renders at, for games that let the app choose them (The Witcher 3). **The game's own** keeps its 1280 × 720. **Fit the screen** renders at the shape of the screen (the iPad's 4:3, an iPhone's long screen, a Mac display) with 720, 1080 or 1440 lines, so the picture fills it without black bars. A wider screen shows more at the sides, a narrower one more above and below. The game's menus and HUD are laid out for 16:9, 4:3 and 21:9; at other shapes they keep a 16:9 area in the middle. More lines are sharper but use more memory and GPU time. The size is set when the game starts.
 
 ### Console mode
 
@@ -223,6 +227,7 @@ A line like `DM_PRESENT_SNAP=0` in `Documents/env.txt` (in the Files app, under 
 |---|---|---|
 | Frame rate | `DM_FPS_TARGET` | `30`, `60` |
 | Render scale | `DM_RENDER_SCALE` | `0.5` to `1.0` |
+| Render size | `DM_RENDER_SIZE` | `0` the game's own, `auto` the screen's shape at 1080 lines, `auto:<lines>`, or `<width>x<height>` |
 | Console mode | `DM_OPMODE` | `1` docked, `0` handheld |
 | Game language | `DM_LANG` | a language code, such as `ja` |
 | Display mode (Mac) | `DM_FULLSCREEN` | `1` fullscreen, `0` a window |

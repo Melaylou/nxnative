@@ -202,6 +202,7 @@ static void read_layout(module_t *m, const char *dir) {
         else if (!strcmp(key, "RO_OFF")) m->ro_off = v;
         else if (!strcmp(key, "DATA_OFF")) m->data_off = v;
         else if (!strcmp(key, "FPS_STATE_OFF")) m->fps_state_off = v;
+        else if (!strcmp(key, "RENDER_SIZE")) m->render_size = (int)v;
         else if (!strcmp(key, "UE_MALLOC_VT")) m->ue_malloc_vt = v;
         else if (!strcmp(key, "UE_MALLOC_SLOT")) m->ue_malloc_slot = (unsigned)v;
         else if (!strncmp(key, "UE_CVAR:", 8)) {
@@ -249,6 +250,70 @@ void dm_fps_state_apply(void) {
     memcpy(dm_fps_state + 0x10, &sc, sizeof sc);
     char cap[32]; snprintf(cap, sizeof cap, ", capped at %d fps", t);
     LOG("%s: frame step %s%s (%s)", g_fps_mod, !t ? "as the game sets it" : "in whole vsyncs decided by the host", t ? cap : "", e ? "DM_FPS_TARGET" : "game profile fps_target");
+}
+// Render size (the stubs of a build whose fixups carry RENDER_SIZE: The Witcher 3 4.04b, dm/games/0100A0800E9C4000/patches.py). The game's size sites read width and height from
+// state +0x40 / +0x44 (their floats at +0x48 / +0x4c); 0 keeps the game's own size. DM_RENDER_SIZE picks it:
+//   unset, empty, 0 or game  the game's own size;
+//   <w>x<h>                  that size;
+//   auto[:<h>]               the host screen's shape at <h> lines (1080 by default; front_display_px), so the picture fills the screen. Wider shapes show more at the sides,
+//                            narrower ones more above and below (the Vert+ stub)
+// The size is fixed for the session: the profile's render_size_pools rows (NVN memory pools the game keeps in its data) grow with the pixel count here, before the game creates
+// them, and its render_size_ini rows rewrite the RomFS config that sets the output size into an overlay folder (DM_ROMFS_OVERLAY, read when the game mounts its RomFS)
+static double g_picture_aspect = 16.0 / 9.0;
+double dm_picture_aspect(void) { return g_picture_aspect; }   // the shape of the game's picture: the front ends map touches into it (front_mac.m, front_ios.m, DmGamepad.m)
+__attribute__((weak)) int front_display_px(int *w, int *h);   // the screen's size in pixels, landscape (front ends; none in unit tests)
+char *dm_romfs_read(const char *rest, size_t *len); const char *dm_temp_dir(char *buf, size_t n);
+static int mkdirs(char *p) {   // every folder of a file path
+    for (char *s = strchr(p + 1, '/'); s; s = strchr(s + 1, '/')) { *s = 0; int r = mkdir(p, 0755); *s = '/'; if (r && errno != EEXIST) return -1; }
+    return 0;
+}
+static void render_size_ini(int w, int h) {
+    static const char *lines[] = DM_GAME_RENDER_INI_LINES; const char *path = DM_GAME_RENDER_INI_PATH;
+    if (!path[0]) return;
+    if (getenv("DM_ROMFS_OVERLAY")) { LOG("[RED] render size: DM_ROMFS_OVERLAY is set, so %s is left as it is: the output stays the game's own size", path); return; }
+    size_t n; char *src = dm_romfs_read(path, &n);
+    if (!src) { LOG("[RED] render size: the game's %s is missing: the output stays the game's own size", path); return; }
+    char t[1024], dir[1100], file[1400]; snprintf(dir, sizeof dir, "%s_render_size", dm_temp_dir(t, sizeof t)); snprintf(file, sizeof file, "%s/%s", dir, path);
+    FILE *f = mkdirs(file) ? NULL : fopen(file, "wb"); int hit = 0;
+    for (char *l = src; f && *l;) {   // line by line, keeping the line ends (CRLF): a line that starts with a template's text before its first { gets the template, filled in
+        char *e = strchr(l, '\n'); size_t len = e ? (size_t)(e - l + 1) : strlen(l); const char *s = l; while (*s == ' ' || *s == '\t') s++;
+        const char *tpl = NULL; for (int i = 0; lines[i]; i++) { size_t k = strcspn(lines[i], "{"); if (!strncmp(s, lines[i], k)) { tpl = lines[i]; break; } }
+        if (tpl) {
+            for (const char *c = tpl; *c; c++)
+                if (!strncmp(c, "{w}", 3)) { fprintf(f, "%d", w); c += 2; } else if (!strncmp(c, "{h}", 3)) { fprintf(f, "%d", h); c += 2; } else fputc(*c, f);
+            size_t body = strcspn(l, "\r\n"); fwrite(l + body, 1, len - body, f); hit++;
+        } else fwrite(l, 1, len, f);
+        l += len;
+    }
+    free(src);
+    if (!f || fclose(f)) { LOG("[RED] render size: cannot write %s: the output stays the game's own size", file); return; }
+    setenv("DM_ROMFS_OVERLAY", dir, 1);
+    LOG("render size: %s with %d of its lines set to %dx%d (overlay %s)", path, hit, w, h, dir);
+}
+void dm_render_size_apply(void) {
+    module_t *m = NULL; for (int i = 0; i < g_nmod; i++) if (g_mod[i].render_size && g_mod[i].fps_state_off) m = &g_mod[i];
+    const char *e = getenv("DM_RENDER_SIZE");
+    if (!m || !e || !*e || !strcmp(e, "0") || !strcmp(e, "game")) return;
+    int w = 0, h = 0;
+    if (!strncmp(e, "auto", 4)) {
+        h = e[4] == ':' ? atoi(e + 5) : 1080; int sw = 0, sh = 0;
+        if (front_display_px && front_display_px(&sw, &sh) && sw > 0 && sh > 0) w = (int)((double)h * sw / sh + 0.5);
+        else { w = h * 16 / 9; LOG("render size: the screen's size is unknown; 16:9"); }
+    } else if (sscanf(e, "%dx%d", &w, &h) != 2) w = 0;
+    w = (w + 7) & ~7; h = (h + 7) & ~7;   // whole 8-pixel blocks
+    if (w < 320 || h < 240 || w > 7680 || h > 4320) { LOG("[RED] DM_RENDER_SIZE=%s: must be 0, <w>x<h> (320x240 to 7680x4320) or auto[:<h>]; keeping the game's size", e); return; }
+    uint8_t *st = m->base + m->fps_state_off; uint32_t u[2] = {(uint32_t)w, (uint32_t)h}; float fl[2] = {(float)w, (float)h};
+    memcpy(st + 0x40, u, sizeof u); memcpy(st + 0x48, fl, sizeof fl);
+    static const struct { uint64_t off; unsigned bpp; } pools[] = DM_GAME_RENDER_POOLS;
+    for (int i = 0; pools[i].off; i++) {
+        if (pools[i].off + 8 > m->size || pools[i].off < m->data_off) die("render size: pool word %#llx is outside %s's data", (unsigned long long)pools[i].off, m->name);
+        uint64_t old, want = ((uint64_t)w * h * pools[i].bpp + 0xfffff) & ~0xfffffull; memcpy(&old, m->base + pools[i].off, 8);
+        if (want > old) memcpy(m->base + pools[i].off, &want, 8);
+        LOG("render size: pool %s+%#llx %llu → %llu MB", m->name, (unsigned long long)pools[i].off, (unsigned long long)(old >> 20), (unsigned long long)((want > old ? want : old) >> 20));
+    }
+    g_picture_aspect = (double)w / h;
+    render_size_ini(w, h);
+    LOG("render size: %dx%d (DM_RENDER_SIZE=%s)", w, h, e);
 }
 static void install_key_page(module_t *m) {
     if (m->key_page_off + m->key_page_size > m->size) die("%s: key page out of range", m->name);

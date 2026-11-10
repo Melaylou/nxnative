@@ -33,6 +33,10 @@ static int g_input_on = 1;   // main thread: the game window is key, so its keyb
 void *front_metal_layer(void) { return (__bridge void *)g_layer; }
 static _Atomic int g_screen_fps;   // the window's screen's maximumFramesPerSecond, kept up to date when the window moves to another screen
 int front_screen_max_fps(void) { return g_screen_fps; }
+int front_display_px(int *w, int *h) {   // the main screen in pixels (called on the main thread before the window opens)
+    NSScreen *s = NSScreen.mainScreen; if (!s) return 0;
+    NSSize p = [s convertRectToBacking:s.frame].size; *w = (int)fmax(p.width, p.height); *h = (int)fmin(p.width, p.height); return *w > 0 && *h > 0;
+}
 static _Atomic int g_fullscreen;   // the window is in fullscreen (set when it has entered and when it has left)
 int front_fullscreen(void) { return g_fullscreen; }   // nvn_mtl.m link_latency: frame latency 2 in fullscreen
 // The screen's refresh rate matched to the game's frame rate in fullscreen (front_screen_match, from PR #79; DM_SCREEN_MATCH=0 turns it off). 60 fps on a 144 Hz screen cannot be paced
@@ -222,7 +226,7 @@ static void pads_start(void) {
     NSPoint p = [self convertPoint:e.locationInWindow fromView:nil]; NSSize b = self.bounds.size;
     double w = b.width, h = b.height;
     if (w <= 0 || h <= 0) return;
-    if (w / h > 16.0 / 9.0) w = h * 16.0 / 9.0; else h = w * 9.0 / 16.0;   // the centered 16:9 picture the present fits into the view, as on the iPhone (DmGamepad.m)
+    double a = dm_picture_aspect(); if (w / h > a) w = h * a; else h = w / a;   // the centered picture (16:9, or the render size's shape) the present fits into the view, as on the iPhone (DmGamepad.m)
     double x0 = (b.width - w) / 2, y0 = (b.height - h) / 2;
     dm_touch t = {0, (float)fmin(fmax((p.x - x0) / w, 0), 0.999), (float)fmin(fmax(1 - (p.y - y0) / h, 0), 0.999)};   // The AppKit view origin is at bottom left, the touchscreen origin is at top left
     dm_touch_set(&t, 1); g_mouse_down = 1;
@@ -1109,7 +1113,7 @@ void front_run(void (*guest)(void)) {
     @autoreleasepool {
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-        NSRect r = NSMakeRect(0, 0, 1280, 720);
+        NSRect r = NSMakeRect(0, 0, round(720 * dm_picture_aspect()), 720);   // 1280x720 points, or the render size's shape (DM_RENDER_SIZE)
         NSWindow *win = [[NSWindow alloc] initWithContentRect:r
                                                     styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
                                                       backing:NSBackingStoreBuffered defer:NO];

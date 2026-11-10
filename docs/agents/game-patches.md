@@ -97,6 +97,7 @@ Every patch bound tighter than it could be: the open gaps, then the blocked, kep
 | [The Legend of Zelda: Breath of the Wild](#the-legend-of-zelda-breath-of-the-wild) | 7 | 0 | 5 | 0 | 0 | `build` → `game` ×2 |
 | [The Legend of Zelda: Link's Awakening](#the-legend-of-zelda-links-awakening) | 1 | 0 | 0 | 0 | 0 | `build` → `game` |
 | [The Legend of Zelda: Tears of the Kingdom](#the-legend-of-zelda-tears-of-the-kingdom) | 0 | 0 | 9 | 0 | 0 | `build` → `game` |
+| [The Witcher 3: Wild Hunt — Complete Edition](#the-witcher-3-wild-hunt--complete-edition) | 0 | 0 | 28 | 0 | 0 | `build` |
 | [Xenoblade Chronicles 3](#xenoblade-chronicles-3) | 6 | 0 | 0 | 0 | 0 | `build` → `game` |
 
 ## Games
@@ -548,6 +549,47 @@ Every patch bound tighter than it could be: the open gaps, then the blocked, kep
   - frame step `+0xbe14a8`: swapchain argument 1 when on (FPSLocker)
   - render scale stub (the launcher offers DM_RENDER_SCALE)
 
+### The Witcher 3: Wild Hunt — Complete Edition
+
+[The Witcher 3: Wild Hunt — Complete Edition](../../dm/games/0100A0800E9C4000/README.md), `0100A0800E9C4000`, [patches.py](../../dm/games/0100A0800E9C4000/patches.py).
+
+- **`build`**, rendering, at goal, checked: Mac, 4.04b: 1280x720 (unset), 1920x1080, 1440x1080, 2560x1080 and the screen shape, outdoor save, 2026-11-10: The Witcher 3 render size and Vert+: the fixed 1280x720 size sites, the tiled-lighting buffer sizes and the main camera FOV read the host size (DM_RENDER_SIZE). The size is constants in this build's code (no size in its data or config the host could set; rendering.ini's size alone leaves the scene passes at 720p), and the tiled-lighting buffers are sized from 720p tile counts at their allocation
+
+- **4.04b `main`** `d27fd8a5…` ([patches.py:138](../../dm/games/0100A0800E9C4000/patches.py#L138))
+  <details><summary>28 frame-step sites</summary>
+
+  - frame step `+0x3880`: size function width from the host size (state +0x40)
+  - frame step `+0x3888`: size function height from the host size (state +0x44)
+  - frame step `+0x383ea8`: main camera FOV: Vert+ for aspects narrower than 16:9 (exact, 2 atan(k tan(FOV/2)))
+  - frame step `+0x85bbd0`: size getter width from the host size (state +0x40)
+  - frame step `+0x85bbd8`: size getter height from the host size (state +0x44)
+  - frame step `+0x85df6c`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85df80`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x85e0b0`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x85e0d4`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85e410`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85e424`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x85e570`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85e584`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x85e7b4`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85e7c8`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x85e8d8`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85e8ec`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x85edf8`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0x85ee0c`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x86125c`: dynamic-resolution cap width from the host size (state +0x48)
+  - frame step `+0x861290`: dynamic-resolution cap height from the host size (state +0x4c)
+  - frame step `+0xfee3f0`: viewport width from the host size (state +0x40)
+  - frame step `+0xfee3f4`: viewport height from the host size (state +0x44)
+  - frame step `+0x101f768`: tiled-lighting buffer A count from the tile counts of the host size (720p constants in the original)
+  - frame step `+0x101f774`: tiled-lighting buffer A size from the tile counts of the host size (720p constants in the original)
+  - frame step `+0x101f7a0`: tiled-lighting buffer B count from the tile counts of the host size (720p constants in the original)
+  - frame step `+0x101f7ac`: tiled-lighting buffer B size from the tile counts of the host size (720p constants in the original)
+  - frame step `+0x1026124`: UI target size (width | height << 32) from the host size (state +0x40)
+
+  </details>
+
+
 ### Xenoblade Chronicles 3
 
 [Xenoblade Chronicles 3](../../dm/games/010074F013262000/README.md), `010074F013262000`, [patches.py](../../dm/games/010074F013262000/patches.py).
@@ -624,6 +666,7 @@ Profile keys (`game.tsv`) whose value changes what the host does, set away from 
 | `game_env DOTNET_GCRegionRange=60000000` | [Absolum](../../dm/games/0100A83022A22000/README.md) | `game`, at goal | measured for the game's regions |
 | `present_snap on` | [The Legend of Zelda: Breath of the Wild](../../dm/games/01007EF00011E000/README.md) | `game` → `host`, gap | a setting the game was tested with: a default for every game after `regress.py check` on the games |
 | `pso_mtl4 on` | [The Legend of Zelda: Breath of the Wild](../../dm/games/01007EF00011E000/README.md) | `game` → `host`, gap | a setting the game was tested with on an iPhone: a default for every game after `regress.py check` on the games |
+| `render_size_pools 0x399a0a0:172 0x399a160:24` | [The Witcher 3: Wild Hunt — Complete Edition](../../dm/games/0100A0800E9C4000/README.md) | `build`, at goal | the game sizes its pools from a table in its data for its own 1280x720; the render size (DM_RENDER_SIZE) needs them larger: offsets of this build |
 | `shader_key_skip 0x770+0x78` | [Batman: Arkham Knight](../../dm/games/0100ACD0163D0000/README.md) | `game`, at goal | the engine shares one control section among shaders; leaving GLSLC's compile information out of every game's keys would change every shader key |
 | `shader_key_skip 0x7d0+0x18` | [EA SPORTS FC 27](../../dm/games/0100C49025D3E000/README.md) | `game`, at goal | the engine shares one control section among shaders; leaving GLSLC's compile information out of every game's keys would change every shader key |
 | `stdalloc_cap 0xa0000000` | [Absolum](../../dm/games/0100A83022A22000/README.md) | `game`, at goal | what the regions after it need, measured by the NSP script's region check; the host's cap is the default |

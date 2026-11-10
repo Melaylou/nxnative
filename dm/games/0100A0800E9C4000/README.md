@@ -31,10 +31,16 @@ Update 4.04b (v458752), SDK 15. CD PROJEKT RED's REDengine 3 (Saber Interactive'
 ## Resolution and console mode
 
 - **Console mode works.** The game asks only for the operation and performance modes (`nn::oe`), never for the display resolution. In handheld mode (`DM_OPMODE=0`) it switches to its larger handheld HUD layout and changes some scene detail (118 render passes in a White Orchard frame, against 132 docked).
-- **Both modes render at 1280×720.** This is the game's own cap: `/bin/config/platform/nx/rendering.ini` sets `[Viewport] Resolution="1280x720"` and `[Rendering] ForcedRendererResolutionWidth = 1280 / Height = 720`, with no docked or handheld variant. The game's dynamic resolution has separate docked and handheld minimums, but it lowers the resolution only when the GPU is late, which did not happen on an M1 Max. So a docked 720p internal resolution is correct, not a host fault.
-- **A higher resolution needs a code patch, not a config change** (Mac app, 2026-11-05, test copies only):
-  - The same keys in the save's `user.settings/settings.txt` are ignored: still 1280×720.
-  - A modified `rendering.ini` through `DM_ROMFS_OVERLAY` crashes the game at graphics start-up, with a null-address `sig=11`. Output and internal resolution both at 1920×1080: `main+0x85b00c`. Only the internal resolution at 1920×1080: `main+0x860f28`. The Switch build evidently sizes its graphics memory for 720p.
+- **Both modes render at 1280×720 by default.** This is the game's own choice: `/bin/config/platform/nx/rendering.ini` sets `[Viewport] Resolution="1280x720"` and `[Rendering] ForcedRendererResolutionWidth = 1280 / Height = 720`, with no docked or handheld variant. The game's dynamic resolution has separate docked and handheld minimums, but it lowers the resolution only when the GPU is late, which did not happen on an M1 Max. So a docked 720p internal resolution is correct, not a host fault.
+- **Render size (current, 2026-11-10): any size and shape** with `DM_RENDER_SIZE` (the launcher's **Render size**: `auto` fits the screen's shape). Off by default: the game keeps its 1280×720.
+  - **Why config alone fails:** the size is constants in code. `rendering.ini` through `DM_ROMFS_OVERLAY` crashes at graphics start-up (`main+0x85b00c`, `main+0x860f28`: NVN memory pools sized for 720p); with larger pools the scene passes still render 1280×720 and the menus are cropped.
+  - **Code** (`patches.py`, frame-step stubs reading state `+0x40`): the dynamic-resolution cap (8 width / height pairs), the size getter, the size function and a viewport set, and the UI target's size.
+  - **Tiled-lighting buffers:** `main+0x101f700` allocates two compute buffers for 720p tile counts (3,815,424 and 724,224 bytes). At a larger size their dispatches write past the end into the HUD's vertex buffer, and the HUD disappears. The stubs size them from the tile counts, with the same formula that gives the 720p constants.
+  - **Vert+:** the FOV is vertical, so a narrower shape would lose its sides. For shapes narrower than 16:9 the stub at the main camera's setter call (`main+0x383ea8`) widens the FOV to keep the 16:9 width. Wider shapes show more at the sides (the game's own behaviour).
+  - **Loader** (`dm_render_size_apply`): it scales the profile's `render_size_pools` (render targets 148 MB at 720p, the swap chain 16 MB) with the pixel count, and rewrites `render_size_ini`'s lines into an overlay.
+  - **Tested** on the Mac, outdoor save: 1920×1080, 1440×1080 (4:3), 2560×1080 (21:9), 2336×1080 and 1080×1080 render every scene pass at full size, with the HUD and the menus; no crash. At 2048×1536 memory peaks at 3.1 GB resident.
+  - **The UI has layouts for 16:9, 4:3 and 21:9;** other shapes keep a 16:9 area in the middle for the HUD and menus.
+  - **Not yet checked:** an iPad run, cutscenes, long play.
 - **For a sharper picture:** MetalFX upscaling (`DM_PRESENT_UPSCALE=metalfx`) costs about 1.5–2 ms of GPU per frame for 1280×720 → 4286×2411 on an M1 Max. A frame's GPU time is otherwise about 10–11 ms (p50), 14–16 ms (p95) of the 33.3 ms at 30 fps.
 
 ## Build from scratch

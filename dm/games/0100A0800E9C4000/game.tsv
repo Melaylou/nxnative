@@ -30,6 +30,14 @@ app_pool	0xCD500000
 # the NPDM declares 4 MB of system resource
 sys_resource	0x400000
 
+# ---- Render size ----
+# the game renders 1280x720 by its own choice; patches.py makes every fixed size site read the host's size (DM_RENDER_SIZE, loader.c), so it can render any size and shape. Two NVN
+# memory pools in main's data do not grow with the size: render targets (GpuMemoryPool_RenderTargetsCompressible, 148 MB, out of memory at 1080p) and the swap chain's budget (16 MB).
+# The loader scales them with the pixel count: 172 bytes per pixel (the 720p pool x 1.02) and 24 (two 4-byte swap chain textures with their headroom; 48 MB at 1080p, tested)
+render_size_pools	0x399a0a0:172 0x399a160:24
+# rendering.ini sets the output (swap chain) size: without it the scene renders at the host size but the picture stays 1280x720
+render_size_ini	bin/config/platform/nx/rendering.ini	Resolution="{w}x{h}"	ForcedRendererResolutionWidth = {w}	ForcedRendererResolutionHeight = {h}
+
 # ---- Frame rate ----
 # the game caps itself only through present interval 2 (set at window creation) and its logic runs on real time (2026-11-05: 60.0 fps at the same game-clock speed as 30): offer the 60 fps toggle
 fps_unlock	on

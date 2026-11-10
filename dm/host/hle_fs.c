@@ -115,6 +115,29 @@ static const char *envdir(const char *var, const char *rel, char *buf, size_t n)
     snprintf(buf, n, "%s%s/%s", getenv("DM_ROOT") ?: getenv("HOME"), getenv("DM_ROOT") ? "" : "/dm-work", rel); return buf;
 }
 
+// The temp folder (DM_TEMP, or run/platform/temp under DM_ROOT): for files the host generates before the game runs (loader.c dm_render_size_apply)
+const char *dm_temp_dir(char *buf, size_t n) { return envdir("DM_TEMP", "run/platform/temp", buf, n); }
+// The game's own copy of a RomFS file (DM_ROMFS: an image or a folder; an overlay is not consulted), read whole and NUL-terminated; NULL when it is missing. For a config file the
+// loader rewrites before the game mounts its RomFS (loader.c dm_render_size_apply)
+static int64_t img_find(const romfs_img *m, const char *rest);
+char *dm_romfs_read(const char *rest, size_t *len) {
+    char b[1024], p[2048]; const char *dir = envdir("DM_ROMFS", "romfs", b, sizeof b); struct stat st; char *data = NULL; size_t n = 0;
+    if (stat(dir, &st)) return NULL;
+    if (S_ISREG(st.st_mode)) {
+        romfs_img *m = romfs_image_open(dir); if (!m) return NULL;
+        int64_t k = img_find(m, rest);
+        if (k >= 0 && m->e[k].type && (data = malloc((size_t)m->e[k].b + 1)) && romfs_image_read(m->fd, data, (size_t)m->e[k].b, (off_t)m->e[k].a)) n = (size_t)m->e[k].b;
+        else { free(data); data = NULL; }
+        romfs_image_close(m);
+    } else {
+        snprintf(p, sizeof p, "%s/%s", dir, rest); FILE *f = fopen(p, "rb");
+        if (f && !fseek(f, 0, SEEK_END)) { long l = ftell(f); rewind(f); if (l >= 0 && (data = malloc((size_t)l + 1)) && fread(data, 1, (size_t)l, f) == (size_t)l) n = (size_t)l; else { free(data); data = NULL; } }
+        if (f) fclose(f);
+    }
+    if (data) { data[n] = 0; if (len) *len = n; }
+    return data;
+}
+
 // Steps that end in a failed write: test injection DM_TEST_FS_FAILAT=<point>[:<count>][,...] -- in a save transaction, mountclone (clone the work directory at mount),
 // reclone (reclone after a refused commit), guestname (write the guest name after a rename), renameback (rename rollback) fail with ENOSPC for the first <count> times (default 1),
 // to check "no exit, committed version unchanged, next commit works" (tests/t_fs.c 6). Without the variable it costs one getenv

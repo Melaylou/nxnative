@@ -101,6 +101,13 @@ def header(g):
     if fu not in ('on', 'off'): sys.exit(f'{g.id}: fps_unlock must be on or off: {fu}')
     fh = g.get('fps_hold', 'on')   # whether the frame step may hold a frame longer than the cap's vsyncs when frames come late (hle_nvn.c fstep_tick): on / off
     if fh not in ('on', 'off'): sys.exit(f'{g.id}: fps_hold must be on or off: {fh}')
+    # Render size (patches.py stubs that read a size from the frame step state page, RENDER_SIZE in main's fixups; loader.c dm_render_size_apply): the main data words to scale with the
+    # pixel count (offset:bytes per pixel, a pool size the game keeps in its data; never below the original) and the RomFS config file whose lines set the game's size, each line a
+    # template whose text before the first { names the line it replaces ({w} / {h} = the render width / height)
+    rsp = [x.split(':') for x in g.words('render_size_pools', '')]
+    if any(len(x) != 2 for x in rsp): sys.exit(f'{g.id}: render_size_pools must be <data offset>:<bytes per pixel> ...: {rsp}')
+    rsi = g.values('render_size_ini')
+    if rsi and (len(rsi[0]) < 2 or any('{' not in t for t in rsi[0][1:])): sys.exit(f'{g.id}: render_size_ini must be <RomFS path> <template with {{w}} / {{h}}> ...')
     utp = g.get('ue_texture_pool', '0')   # Unreal's r.Streaming.PoolSize in MB, raised to this on the Mac (hle_uecvar.c; DM_UE_TEXTURE_POOL overrides, and turns it on for iOS): 0 = the game's own pool
     if not utp.isdigit(): sys.exit(f"{g.id}: ue_texture_pool must be megabytes (0 = the game's own pool): {utp}")
     ufc = g.get('ue_fps_cvar', 't.MaxFPS')   # the Unreal console variable the host writes fps_target into (hle_fpslock.c; found by name by the rewriter, ue_cvar.py NAMES): a game's own frame limit its settings apply to t.MaxFPS
@@ -189,6 +196,9 @@ def header(g):
          f'#define DM_GAME_TEX_DYN_SLOTS {int(tds == "on")}',
          f'#define DM_GAME_GPU_TS_SEGMENT {int(gts == "segment")}',
          f'#define DM_GAME_VCONV_RANGE {int(vcr == "on")}',
+         f'#define DM_GAME_RENDER_POOLS {{' + ''.join(f'{{{int(o, 0):#x}ull, {int(b)}}}, ' for o, b in rsp) + '{0, 0}}',
+         f'#define DM_GAME_RENDER_INI_PATH {q(rsi[0][0] if rsi else "")}',
+         f'#define DM_GAME_RENDER_INI_LINES {{' + ''.join(q(t) + ', ' for t in (rsi[0][1:] if rsi else [])) + 'NULL}',
          *([f'#define DM_GAME_NVN_API_MAJOR {api.split(".")[0]}', f'#define DM_GAME_NVN_API_MINOR {api.split(".")[1]}'] if g.get('device_api', '') else []),   # without the key: by the SDK version (hle_nvn.c nvn_api)
          '']
     return '\n'.join(L)

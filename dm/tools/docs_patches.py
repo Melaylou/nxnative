@@ -125,6 +125,10 @@ SWITCH_BINDING = [
     ('fps_unlock', '', {'what': '60 fps toggle in the settings (one frame per display tick)', 'now': 'game', 'goal': 'game', 'purpose': 'frame rate', 'why': 'right only for games whose logic runs on real time'}),
     ('ue_fps_cvar', '', {'what': "the game's own Unreal frame-limit variable", 'now': 'game', 'goal': 'game', 'purpose': 'frame rate', 'why': "the game's own variable, which its settings apply to t.MaxFPS; the rewriter finds it by name (ue_cvar.py)"}),
     ('perf_mode', '', {'what': 'Boost whatever the operation mode', 'now': 'game', 'goal': 'game', 'purpose': 'runtime', 'why': 'a combination a Switch 1 never reports: a choice per game'}),
+    ('render_size_pools', '', {'what': 'NVN memory pools in main\'s data scaled with the render size', 'now': 'build', 'goal': 'build', 'purpose': 'memory',
+     'why': "the game sizes its pools from a table in its data for its own 1280x720; the render size (DM_RENDER_SIZE) needs them larger: offsets of this build"}),
+    ('render_size_ini', '', {'what': "the game's config lines that set its output size, rewritten for the render size", 'now': 'game', 'goal': 'game', 'purpose': 'rendering',
+     'why': "the game's own config file sets the swap chain's size; the render size (DM_RENDER_SIZE) rewrites those lines into an overlay"}),
     ('op_mode', '', {'what': 'the operation mode at start', 'now': 'game', 'goal': 'game', 'purpose': 'runtime', 'why': "the game's controls (handheld: the touch screen instead of a gyro pointer)"}),
 ]
 

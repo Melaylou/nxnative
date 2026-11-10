@@ -51,10 +51,13 @@ static UILabel *front_ios_fps_label(void);
     l.drawableSize = CGSizeMake(self.bounds.size.width * l.contentsScale, self.bounds.size.height * l.contentsScale);
 }
 @end
-static CGRect fit_16_9(CGRect b) {   // the largest centered 16:9 rectangle in b
-    CGFloat w = b.size.width, h = b.size.height;
-    if (w / h > 16.0 / 9.0) w = h * 16.0 / 9.0; else h = w * 9.0 / 16.0;
+static CGRect fit_16_9(CGRect b) {   // the largest centered rectangle of the picture's shape in b (16:9, or the render size's shape: dm_picture_aspect)
+    CGFloat w = b.size.width, h = b.size.height, a = dm_picture_aspect();
+    if (w / h > a) w = h * a; else h = w / a;
     return CGRectMake(floor((b.size.width - w) / 2), floor((b.size.height - h) / 2), w, h);
+}
+int front_display_px(int *w, int *h) {   // the device screen in pixels, landscape (the game runs in landscape; loader.c DM_RENDER_SIZE=auto)
+    CGRect b = UIScreen.mainScreen.nativeBounds; *w = (int)fmax(b.size.width, b.size.height); *h = (int)fmin(b.size.width, b.size.height); return *w > 0 && *h > 0;
 }
 static void tv_attach(void);
 
