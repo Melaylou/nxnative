@@ -6,6 +6,22 @@ Play your own Nintendo Switch games natively on iPhone and iPad. Bring your game
 
 It is not an emulator: the game's own code runs directly on the Apple chip, with Switch graphics rebuilt on Metal. Nothing from any game is in this repository, and the project is not affiliated with Nintendo or any game publisher.
 
+## What this branch adds
+
+[The Witcher 3: Wild Hunt — Complete Edition](dm/games/0100A0800E9C4000/README.md) (4.04b) on Apple-silicon Macs and M-series iPads, with these improvements:
+
+- **Render size and shape (new):** the game can render above its fixed 1280 × 720 and at your screen's own shape. Choose **Render size** in the settings: **Fit the screen** at 720, 1080 or 1440 lines.
+  - Wider screens show more at the sides; narrower ones, such as a 4:3 iPad, show more above and below. Nothing is cropped or stretched.
+  - Tested on the Mac at 1080p, 4:3, 21:9 and the screen's shape. Untested on iPad and iPhone.
+  - [Details](docs/settings.md#render-size).
+- **All of the game's shaders:** readers for REDengine's shader containers, so the game gets all of its 29,673 shaders instead of 621.
+- **Bindless texture fix:** a shader translator fix that brings back 1,866 texture reads that used to return nothing.
+- **Tessellation:** adaptive tessellation without a Metal tessellator, which restores outdoor terrain and water.
+- **60 fps toggle:** a **60 fps** setting for games that cap themselves only by how often they present.
+- **iPad stability:** a fix for a crash when Metal encoding runs on its own thread.
+
+Building, tested hardware and known limits are in [PREVIEW.md](PREVIEW.md).
+
 ## How to play
 
 ### With a Mac app
