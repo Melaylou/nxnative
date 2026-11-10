@@ -13,6 +13,11 @@ This branch, `witcher3-preview`, is a **preview** of the changes that bring **Th
 - **60 fps toggle:** a "60 fps" option in the settings for games capped only by their present interval.
 - **Deferred encoding fix:** the recorder now handles `setThreadgroupMemoryLength:atIndex:`, which fixes an iPad crash with the encode thread on.
 - **The Witcher 3 profile:** shader tables, a prewarm seed list, `depth_mode zero`, and the build inputs in `dm/games/0100A0800E9C4000/build/`.
+- **Render size and shape (new, untested on iPad):** The Witcher 3 can render at any size and at your screen's own shape, instead of its fixed 1280×720. Choose **Render size** in the settings: **Fit the screen** at 720, 1080 or 1440 lines, or the game's own 720p (the default). It sets `DM_RENDER_SIZE`, which also takes an exact `<width>x<height>`.
+  - Wider screens show more at the sides, and narrower ones (4:3 iPads) more above and below (Vert+), so nothing is cropped or stretched.
+  - Graphics memory and the game's output settings follow the chosen size, and lighting buffers that sized for 720p no longer hide the HUD at higher sizes.
+  - Tested on the Mac at 1920×1080, 1440×1080 (4:3), 2560×1080 (21:9) and the screen's shape. iPad and iPhone are untested; 1440 lines may be too much memory there.
+  - The UI has layouts for 16:9, 4:3 and 21:9; at other shapes the HUD and menus keep a 16:9 area in the middle.
 
 ## Building
 You need your **own** copy of the game: the base game (v0) and update v458752 NSPs, plus your own `prod.keys`. This repository holds no game files, and none will be shared, so please don't ask for builds or game files.
@@ -25,7 +30,7 @@ Set up the tools as in the [README](README.md), then follow the commands in [the
 - **Other versions:** only 4.04b (base game + update) has been tested.
 
 ## Known limits
-- **Resolution:** the game caps itself at 1280×720. MetalFX can upscale it.
+- **Resolution:** 1280×720 by default. Higher sizes and other shapes are opt-in (**Render size**) and untested on iPad, in cutscenes and in long play. MetalFX can still upscale.
 - **Distant terrain:** looks soft on both platforms.
 - **iPad:** one terrain copy pipeline (`R16Uint` target) is refused.
 - **Texture reads:** 1,105 texture reads chosen at run time still read 0.
