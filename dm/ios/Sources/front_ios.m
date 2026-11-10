@@ -242,6 +242,11 @@ void front_progress(const char *title, long done, long total) {
     });
 }
 void *front_metal_layer(void) { return (__bridge void *)g_layer; }
+// The picture's shape changed at game start (loader.c dm_render_size_apply): the root view laid the game view out at 16:9 before the launcher ran, so lay it out again
+// (iPad 4:3 at DM_RENDER_SIZE=auto: a 16:9 view held the 4:3 picture with black on all four sides)
+void front_picture_changed(void) {
+    dispatch_async(dispatch_get_main_queue(), ^{ UIViewController *r = g_root; if (r) { [r.view setNeedsLayout]; [r.view layoutIfNeeded]; } if (g_tv) [g_tv.rootViewController.view setNeedsLayout]; });
+}
 void front_run(void (*guest)(void)) { guest(); }   // Already on main.m's big-stack thread
 
 // Software keyboard: show a UIAlertController on the main thread, the calling thread waits for the result

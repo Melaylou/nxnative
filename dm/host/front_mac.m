@@ -33,6 +33,7 @@ static int g_input_on = 1;   // main thread: the game window is key, so its keyb
 void *front_metal_layer(void) { return (__bridge void *)g_layer; }
 static _Atomic int g_screen_fps;   // the window's screen's maximumFramesPerSecond, kept up to date when the window moves to another screen
 int front_screen_max_fps(void) { return g_screen_fps; }
+void front_picture_changed(void) {}   // the window opens after the loader sets the picture's shape (run_front_end), so there is nothing to re-lay
 int front_display_px(int *w, int *h) {   // the main screen in pixels (called on the main thread before the window opens)
     NSScreen *s = NSScreen.mainScreen; if (!s) return 0;
     NSSize p = [s convertRectToBacking:s.frame].size; *w = (int)fmax(p.width, p.height); *h = (int)fmin(p.width, p.height); return *w > 0 && *h > 0;

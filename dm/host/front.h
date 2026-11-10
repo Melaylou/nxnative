@@ -16,6 +16,7 @@ void *front_metal_layer(void);
 // The highest refresh rate of the window's screen in Hz, 0 = not known (Mac front_mac.m; none on iOS, whose screens run at multiples of 60 Hz). Any thread
 int front_screen_max_fps(void);
 int front_display_px(int *w, int *h);   // the screen's size in pixels, landscape, before the window opens (loader.c dm_render_size_apply: DM_RENDER_SIZE=auto); 0 when unknown
+void front_picture_changed(void);       // the picture's shape changed (loader.c dm_render_size_apply, at game start): a front end that laid its view out before re-lays it (front_ios.m)
 double dm_picture_aspect(void);         // the game picture's width / height (loader.c; 16:9 unless DM_RENDER_SIZE sets another shape): the front ends fit the view and map touches to it
 // The frame rate the display link paces the game at (60, 30, 120; nvn_mtl.m link_sync): in fullscreen, a screen whose refresh rate is not a multiple of it is switched, while the game runs,
 // to a mode of the same size whose rate is, and back when the window leaves fullscreen or that screen (front_mac.m; none on iOS). Called from the present thread

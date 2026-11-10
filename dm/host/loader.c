@@ -261,8 +261,12 @@ void dm_fps_state_apply(void) {
 // them, and its render_size_ini rows rewrite the RomFS config that sets the output size into an overlay folder (DM_ROMFS_OVERLAY, read when the game mounts its RomFS)
 static double g_picture_aspect = 16.0 / 9.0;
 double dm_picture_aspect(void) { return g_picture_aspect; }   // the shape of the game's picture: the front ends map touches into it (front_mac.m, front_ios.m, DmGamepad.m)
-__attribute__((weak)) int front_display_px(int *w, int *h);   // the screen's size in pixels, landscape (front ends; none in unit tests)
-char *dm_romfs_read(const char *rest, size_t *len); const char *dm_temp_dir(char *buf, size_t n);
+// Front-end hooks (front.h): the front ends define them; these defaults are for builds without one (unit tests)
+__attribute__((weak)) int front_display_px(int *w, int *h) { (void)w; (void)h; return 0; }   // the screen's size in pixels, landscape
+__attribute__((weak)) void front_picture_changed(void) {}   // iOS lays its game view out before the game starts (front_ios.m); the Mac opens its window after this
+// The file system's helpers (hle_fs.c); these defaults are for builds without it (unit tests that link the loader alone): no config file, so the render size keeps the game's output
+__attribute__((weak)) char *dm_romfs_read(const char *rest, size_t *len) { (void)rest; (void)len; return NULL; }
+__attribute__((weak)) const char *dm_temp_dir(char *buf, size_t n) { if (n) buf[0] = 0; return buf; }
 static int mkdirs(char *p) {   // every folder of a file path
     for (char *s = strchr(p + 1, '/'); s; s = strchr(s + 1, '/')) { *s = 0; int r = mkdir(p, 0755); *s = '/'; if (r && errno != EEXIST) return -1; }
     return 0;
@@ -297,7 +301,7 @@ void dm_render_size_apply(void) {
     int w = 0, h = 0;
     if (!strncmp(e, "auto", 4)) {
         h = e[4] == ':' ? atoi(e + 5) : 1080; int sw = 0, sh = 0;
-        if (front_display_px && front_display_px(&sw, &sh) && sw > 0 && sh > 0) w = (int)((double)h * sw / sh + 0.5);
+        if (front_display_px(&sw, &sh) && sw > 0 && sh > 0) w = (int)((double)h * sw / sh + 0.5);
         else { w = h * 16 / 9; LOG("render size: the screen's size is unknown; 16:9"); }
     } else if (sscanf(e, "%dx%d", &w, &h) != 2) w = 0;
     w = (w + 7) & ~7; h = (h + 7) & ~7;   // whole 8-pixel blocks
@@ -312,6 +316,7 @@ void dm_render_size_apply(void) {
         LOG("render size: pool %s+%#llx %llu → %llu MB", m->name, (unsigned long long)pools[i].off, (unsigned long long)(old >> 20), (unsigned long long)((want > old ? want : old) >> 20));
     }
     g_picture_aspect = (double)w / h;
+    front_picture_changed();
     render_size_ini(w, h);
     LOG("render size: %dx%d (DM_RENDER_SIZE=%s)", w, h, e);
 }
